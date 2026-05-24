@@ -1228,6 +1228,115 @@ function YearTape({ history, currentMonth }) {
 }
 
 // ============================================================================
+// LEARNING OBJECTIVES
+// ============================================================================
+
+function LearningObjectives({ strategy, playerResult, alternateResults }) {
+  const strat = STRATEGIES[strategy];
+  const all = [
+    { key: strategy, ...playerResult },
+    ...Object.entries(alternateResults).map(([k, v]) => ({ key: k, ...v })),
+  ];
+  const winner = all.reduce((b, x) => (x.cash > b.cash ? x : b), all[0]);
+  const playerWon = winner.key === strategy;
+
+  const supplierEvents = playerResult.history.filter(h =>
+    EVENTS.find(e => e.id === h.eventId)?.supplierEvent
+  ).length;
+  const crisisMonths = playerResult.history.filter(h => h.severity === 'crisis').length;
+  const stockoutMonths = playerResult.stockoutMonths;
+  const best = all[0];
+  const worst = all[all.length - 1];
+
+  const objectives = [
+    {
+      number: '01',
+      principle: 'Strategy locks in your vulnerability before the year starts',
+      evidence: supplierEvents >= 2 && strategy !== 'dual'
+        ? `You faced ${supplierEvents} supplier disruptions. Dual Source players were immune — they paid a premium in January so they didn't have to scramble in Q3. The decision was made before the crisis, not during it.`
+        : crisisMonths >= 3
+        ? `You navigated ${crisisMonths} crisis months. Every one of them tested assumptions baked into your strategy — assumptions you locked in before seeing a single event card. That's exactly how real supply chains work.`
+        : `Your ${strat.name} choice determined which events would hurt you and which wouldn't — before Month 1 even started. You were already exposed to certain risks the moment you chose.`,
+    },
+    {
+      number: '02',
+      principle: 'The same disruptions hit every strategy differently',
+      evidence: (() => {
+        const spread = best.cash - worst.cash;
+        return `Same twelve months. ${STRATEGIES[best.key].name} ended at $${(best.cash / 1000).toFixed(1)}K. ${STRATEGIES[worst.key].name} ended at $${(worst.cash / 1000).toFixed(1)}K. A $${(spread / 1000).toFixed(1)}K gap — from identical events. The disruption sequence didn't change. The strategy absorbed it differently.`;
+      })(),
+    },
+    {
+      number: '03',
+      principle: 'Resilience has a real price — and so does the absence of it',
+      evidence: (() => {
+        if (stockoutMonths >= 3) {
+          return `${stockoutMonths} months of stockouts hit your reputation and cost you sales. That's the hidden invoice for lean inventory. Safety Stock or Dual Source would have absorbed those spikes — at a higher holding cost paid every single month, not just the bad ones.`;
+        }
+        if (strategy === 'dual') {
+          const leanResult = alternateResults['lean'];
+          if (leanResult && playerResult.cash < leanResult.cash) {
+            return `Your Dual Source premium ran all year. In a year with few supplier shocks, Lean pocketed that difference. Resilience you didn't need this year still shows up on your P&L. This is why the decision is genuinely hard.`;
+          }
+          return `Dual Source paid its premium and — this year — earned it back. But ask yourself: would you have known this in advance? That's the actual challenge.`;
+        }
+        return `Every strategy trades cost-now for safety-later, or vice versa. Safety Stock costs you holding fees on every calm month. Lean costs you stockouts on every volatile one. There is no free option — only different timing of when you pay.`;
+      })(),
+    },
+    {
+      number: '04',
+      principle: 'Tactical execution matters inside any strategy',
+      evidence: (() => {
+        const premiumMoves = playerResult.history.filter(h =>
+          h.decision && (
+            h.decision.toLowerCase().includes('air-freight') ||
+            h.decision.toLowerCase().includes('spot market') ||
+            h.decision.toLowerCase().includes('pre-buy')
+          )
+        );
+        if (premiumMoves.length >= 2) {
+          return `You made ${premiumMoves.length} premium tactical calls — spot market, air-freight, hedges. Each was defensible in isolation. But they compound quickly and can undercut even a sound strategy. Choosing when to spend extra is its own skill, separate from the strategy itself.`;
+        }
+        return `Even a well-chosen strategy can be undone by costly month-to-month responses. When to expedite, ration, or wait isn't written in the strategy document — it's judgment under pressure, usually with incomplete information.`;
+      })(),
+    },
+    {
+      number: '05',
+      principle: 'Hindsight is not foresight',
+      evidence: playerWon
+        ? `You won — but you chose before seeing any events. The right question isn't "did I pick the right strategy?" It's "was my reasoning process sound enough to trust in future years with different disruption mixes?" Run it again and test that.`
+        : `It's obvious now that ${STRATEGIES[winner.key].name} was the call to make. It wasn't obvious before Month 1. Real supply chain decisions are made under the same uncertainty you just experienced — which is exactly why this lesson is worth internalizing.`,
+    },
+  ];
+
+  return (
+    <div className="bg-paper-warm border-2 border-ink p-6 md:p-8 mb-8" style={{ boxShadow: '5px 5px 0 0 var(--ink)' }}>
+      <div className="font-mono text-[10px] uppercase tracking-[0.25em] text-ink-soft mb-1">Learning Objectives</div>
+      <h3 className="font-display text-4xl font-semibold mb-2 tracking-tight">What this game teaches</h3>
+      <p className="text-ink-soft text-base mb-8 max-w-xl">
+        Five principles — each one illustrated by what just happened in your run.
+      </p>
+      <div className="space-y-0">
+        {objectives.map((obj, i) => (
+          <div key={i} className={`flex gap-6 py-6 border-b-2 border-tan last:border-0 fade-up`} style={{ animationDelay: `${i * 0.1}s`, opacity: 0 }}>
+            <div className="font-display text-6xl font-semibold leading-none flex-shrink-0 w-14 pt-1"
+                 style={{ color: 'var(--paper-dark)', WebkitTextStroke: '1.5px var(--tan)' }}>
+              {obj.number}
+            </div>
+            <div className="flex-1">
+              <div className="font-display text-xl font-semibold text-ink mb-2 tracking-tight leading-snug">
+                {obj.principle}
+              </div>
+              <div className="text-ink-soft text-sm leading-relaxed">{obj.evidence}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
 // DEBRIEF SCREEN
 // ============================================================================
 
@@ -1358,6 +1467,13 @@ function DebriefScreen({ playerResult, alternateResults, strategy, onReplay }) {
             })}
           </div>
         </div>
+
+        {/* Learning objectives */}
+        <LearningObjectives
+          strategy={strategy}
+          playerResult={playerResult}
+          alternateResults={alternateResults}
+        />
 
         {/* Lesson */}
         <div className="bg-ink text-paper-warm border-2 border-ink p-8 mb-8" style={{ boxShadow: '5px 5px 0 0 var(--rust)' }}>
